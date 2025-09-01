@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+{%load static%}
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>ДДС</title>
+  <link rel="stylesheet" href="{% static 'style.css' %}">
+</head>
+<body>
+  <div class="container">
+    <nav>
+      <a href="{% url 'dds:record_list' %}">Список записей</a> |
+      <a href="/admin/">Администрирование</a>
+    </nav>
+    <hr>
+    {% block content %}{% endblock %}
+  </div>
+</body>
+</html>

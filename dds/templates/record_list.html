@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page-title">Список записей ДДС</h1>
+
+<div class="filter-form">
+  <form id="filters">
+    <label>С:
+      <input type="date" name="start_date" id="filter-start">
+    </label>
+    <label>По:
+      <input type="date" name="end_date" id="filter-end">
+    </label>
+
+    <label>Статус:
+      <select name="status" id="filter-status">
+        <option value="">-- все --</option>
+      </select>
+    </label>
+
+    <label>Тип:
+      <select name="operation_type" id="filter-type">
+        <option value="">-- все --</option>
+      </select>
+    </label>
+
+    <label>Категория:
+      <select name="category" id="filter-category">
+        <option value="">-- все --</option>
+      </select>
+    </label>
+
+    <label>Подкатегория:
+      <select name="subcategory" id="filter-subcategory">
+        <option value="">-- все --</option>
+      </select>
+    </label>
+
+    <button type="submit" class="btn">Фильтровать</button>
+    <a href="{% url 'dds:record_add' %}" class="btn btn-add">Добавить запись</a>
+  </form>
+</div>
+
+<table class="records-table" id="records-table">
+  <thead>
+    <tr>
+      <th>Дата</th>
+      <th>Статус</th>
+      <th>Тип</th>
+      <th>Категория</th>
+      <th>Подкатегория</th>
+      <th>Сумма</th>
+      <th>Комментарий</th>
+      <th>Действия</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td colspan="8">Загрузка...</td></tr>
+  </tbody>
+</table>
+
+<script>
+  let statusesMap = {};
+let typesMap = {};
+let categoriesMap = {};
+let subcategoriesMap = {};
+// Функция подгрузки справочников
+async function loadFilters() {
+  const [statuses, types, categories, subcategories] = await Promise.all([
+    fetch('/api/statuses/').then(r => r.json()),
+    fetch('/api/operationtypes/').then(r => r.json()),
+    fetch('/api/categories/').then(r => r.json()),
+    fetch('/api/subcategories/').then(r => r.json())
+  ]);
+
+  statuses.forEach(s => statusesMap[s.id] = s.name);
+  types.forEach(t => typesMap[t.id] = t.name);
+  categories.forEach(c => categoriesMap[c.id] = c.name);
+  subcategories.forEach(sc => subcategoriesMap[sc.id] = sc.name);
+
+  const statusSelect = document.getElementById('filter-status');
+  statuses.forEach(s => {
+    statusSelect.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+  });
+
+  const typeSelect = document.getElementById('filter-type');
+  types.forEach(t => {
+    typeSelect.innerHTML += `<option value="${t.id}">${t.name}</option>`;
+  });
+
+  const categorySelect = document.getElementById('filter-category');
+  categories.forEach(c => {
+    categorySelect.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+  });
+
+  const subcategorySelect = document.getElementById('filter-subcategory');
+  subcategories.forEach(sc => {
+    subcategorySelect.innerHTML += `<option value="${sc.id}">${sc.name}</option>`;
+  });
+}
+
+// Функция подгрузки записей с фильтрацией
+async function loadCashFlows(filters = {}) {
+  const params = new URLSearchParams(filters).toString();
+  const response = await fetch('/api/cashflows/?' + params);
+  const data = await response.json();
+  const tbody = document.querySelector('#records-table tbody');
+  tbody.innerHTML = '';
+
+  if (data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8">Записей не найдено</td></tr>';
+    return;
+  }
+
+  data.forEach(item => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${item.created_at}</td>
+        <td>${statusesMap[item.status]}</td>
+      <td>${typesMap[item.operation_type]}</td>
+      <td>${categoriesMap[item.category]}</td>
+      <td>${item.subcategory ? subcategoriesMap[item.subcategory] : ''}</td>
+        <td>${item.amount}</td>
+        <td>${item.comment || ''}</td>
+        <td>
+          <a href="/records/edit/${item.id}/" class="btn">Редактировать</a>
+          <a href="/records/delete/${item.id}/" class="btn btn-del">Удалить</a>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+// Фильтр по форме
+document.getElementById('filters').addEventListener('submit', e => {
+  e.preventDefault();
+  const filters = {
+    start_date: document.getElementById('filter-start').value,
+    end_date: document.getElementById('filter-end').value,
+    status: document.getElementById('filter-status').value,
+    operation_type: document.getElementById('filter-type').value,
+    category: document.getElementById('filter-category').value,
+    subcategory: document.getElementById('filter-subcategory').value
+  };
+  loadCashFlows(filters);
+});
+
+// Инициализация
+loadFilters().then(() => loadCashFlows());
+</script>
+{% endblock %}
