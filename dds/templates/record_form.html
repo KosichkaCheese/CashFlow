@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page-title" id="form-title">Создание записи</h1>
+
+<div class="form-container">
+  <form id="cashflow-form">
+    <label>Дата:
+      <input type="date" name="created_at" id="created_at">
+    </label>
+
+    <label>Статус:
+      <select name="status" id="status-select"></select>
+    </label>
+
+    <label>Тип:
+      <select name="operation_type" id="type-select"></select>
+    </label>
+
+    <label>Категория:
+      <select name="category" id="category-select"></select>
+    </label>
+
+    <label>Подкатегория:
+      <select name="subcategory" id="subcategory-select"></select>
+    </label>
+
+    <label>Сумма:
+      <input type="number" name="amount" id="amount" step="0.01">
+    </label>
+
+    <label>Комментарий:
+      <textarea name="comment" id="comment"></textarea>
+    </label>
+
+    <div class="form-buttons">
+      <button type="submit" class="btn">Сохранить</button>
+      <a href="{% url 'dds:record_list' %}" class="btn btn-cancel">Отмена</a>
+    </div>
+  </form>
+</div>
+
+<script>
+  const recordId = "{{ object.pk|default:'' }}";
+  
+  // Функция для безопасного получения элемента
+  function getElement(id) {
+    const element = document.getElementById(id);
+    if (!element) {
+      console.error(`Элемент с id "${id}" не найден`);
+    }
+    return element;
+  }
+
+  // Данные о связях между типами, категориями и подкатегориями
+  let categoriesByType = {};
+  let subcategoriesByCategory = {};
+  
+  async function loadForm() {
+    try {
+      // Получаем элементы
+      const created_at = getElement('created_at');
+      const statusSelect = getElement('status-select');
+      const typeSelect = getElement('type-select');
+      const categorySelect = getElement('category-select');
+      const subcategorySelect = getElement('subcategory-select');
+      const amount = getElement('amount');
+      const comment = getElement('comment');
+      const formTitle = getElement('form-title');
+      
+      // Устанавливаем сегодняшнюю дату по умолчанию для новой записи
+      if (!recordId) {
+        const today = new Date().toISOString().split('T')[0];
+        created_at.value = today;
+      }
+
+      // Проверяем, что все элементы существуют
+      if (!created_at || !statusSelect || !typeSelect || !categorySelect || 
+          !subcategorySelect || !amount || !comment || !formTitle) {
+        throw new Error('Не все необходимые элементы найдены на странице');
+      }
+
+      // 1. Загружаем справочники
+      const [statusesRes, typesRes, categoriesRes, subcategoriesRes] = await Promise.all([
+        fetch('/api/statuses/'), 
+        fetch('/api/operationtypes/'),
+        fetch('/api/categories/'), 
+        fetch('/api/subcategories/')
+      ]);
+      
+      const [statuses, types, categories, subcategories] = await Promise.all([
+        statusesRes.ok ? statusesRes.json() : [],
+        typesRes.ok ? typesRes.json() : [],
+        categoriesRes.ok ? categoriesRes.json() : [],
+        subcategoriesRes.ok ? subcategoriesRes.json() : []
+      ]);
+
+      // Заполняем данные о связях
+      categories.forEach(c => {
+        if (!categoriesByType[c.operation_type]) {
+          categoriesByType[c.operation_type] = [];
+        }
+        categoriesByType[c.operation_type].push(c);
+      });
+
+      subcategories.forEach(sc => {
+        if (!subcategoriesByCategory[sc.category]) {
+          subcategoriesByCategory[sc.category] = [];
+        }
+        subcategoriesByCategory[sc.category].push(sc);
+      });
+  
+      // Очищаем селекты перед заполнением
+      statusSelect.innerHTML = '';
+      typeSelect.innerHTML = '';
+      categorySelect.innerHTML = '';
+      subcategorySelect.innerHTML = '';
+
+      // Добавляем пустую опцию по умолчанию
+      const addEmptyOption = (select, text = '-- Выберите --') => {
+        select.add(new Option(text, ''));
+      };
+
+      addEmptyOption(statusSelect);
+      addEmptyOption(typeSelect);
+      addEmptyOption(categorySelect);
+      addEmptyOption(subcategorySelect, '-- Сначала выберите категорию --');
+  
+      // Добавляем опции
+      statuses.forEach(s => statusSelect.add(new Option(s.name, s.id)));
+      types.forEach(t => typeSelect.add(new Option(t.name, t.id)));
+      categories.forEach(c => categorySelect.add(new Option(c.name, c.id)));
+      subcategories.forEach(sc => subcategorySelect.add(new Option(sc.name, sc.id)));
+  
+      // 2. Если редактирование, загружаем данные записи
+      if (recordId) {
+        const res = await fetch(`/api/cashflows/${recordId}/`);
+        if (res.ok) {
+          const data = await res.json();
+  
+          created_at.value = data.created_at ? data.created_at.split('T')[0] : '';
+          amount.value = data.amount || '';
+          comment.value = data.comment || '';
+          formTitle.innerText = 'Редактирование записи';
+  
+          // Устанавливаем значения после загрузки всех данных
+          setTimeout(() => {
+            if (data.status) statusSelect.value = data.status;
+            if (data.operation_type) typeSelect.value = data.operation_type;
+            if (data.category) categorySelect.value = data.category;
+            if (data.subcategory) subcategorySelect.value = data.subcategory;
+
+            if (data.operation_type) {
+              updateCategories(); // Обновляем категории для выбранного типа
+              setTimeout(() => {
+                if (data.category) {
+                  categorySelect.value = data.category;
+                  updateSubcategories(); // Обновляем подкатегории для выбранной категории
+                  setTimeout(() => {
+                    if (data.subcategory) {
+                      subcategorySelect.value = data.subcategory;
+                    }
+                  }, 50);
+                }
+              }, 50);
+            }
+          }, 100);
+        }
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки формы:', error);
+      alert('Ошибка загрузки формы: ' + error.message);
+    }
+  }
+
+  // Функция для обновления доступных категорий по выбранному типу
+  function updateCategories() {
+    const typeSelect = getElement('type-select');
+    const categorySelect = getElement('category-select');
+    const subcategorySelect = getElement('subcategory-select');
+    
+    const selectedType = typeSelect.value;
+    
+    // Очищаем категории и подкатегории
+    categorySelect.innerHTML = '';
+    subcategorySelect.innerHTML = '';
+    categorySelect.add(new Option('-- Выберите категорию --', ''));
+    subcategorySelect.add(new Option('-- Сначала выберите категорию --', ''));
+    
+    if (selectedType && categoriesByType[selectedType]) {
+      // Добавляем только категории для выбранного типа
+      categoriesByType[selectedType].forEach(c => {
+        categorySelect.add(new Option(c.name, c.id));
+      });
+    } else {
+      // Если тип не выбран, добавляем все категории (для обратной совместимости)
+      Object.values(categoriesByType).flat().forEach(c => {
+        categorySelect.add(new Option(c.name, c.id));
+      });
+    }
+  }
+
+  // Функция для обновления доступных подкатегорий по выбранной категории
+  function updateSubcategories() {
+    const categorySelect = getElement('category-select');
+    const subcategorySelect = getElement('subcategory-select');
+    
+    const selectedCategory = categorySelect.value;
+    
+    // Очищаем подкатегории
+    subcategorySelect.innerHTML = '';
+    subcategorySelect.add(new Option('-- Выберите подкатегорию --', ''));
+    
+    if (selectedCategory && subcategoriesByCategory[selectedCategory]) {
+      // Добавляем только подкатегории для выбранной категории
+      subcategoriesByCategory[selectedCategory].forEach(sc => {
+        subcategorySelect.add(new Option(sc.name, sc.id));
+      });
+    }
+  }
+  
+  document.getElementById('cashflow-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+  
+    try {
+      // Безопасно получаем элементы
+      const created_at = getElement('created_at');
+      const statusSelect = getElement('status-select');
+      const typeSelect = getElement('type-select');
+      const categorySelect = getElement('category-select');
+      const subcategorySelect = getElement('subcategory-select');
+      const amount = getElement('amount');
+      const comment = getElement('comment');
+
+      const payload = {
+        created_at: created_at ? created_at.value : '',
+        status: statusSelect && statusSelect.value ? parseInt(statusSelect.value) : null,
+        operation_type: typeSelect && typeSelect.value ? parseInt(typeSelect.value) : null,
+        category: categorySelect && categorySelect.value ? parseInt(categorySelect.value) : null,
+        subcategory: subcategorySelect && subcategorySelect.value ? 
+                     parseInt(subcategorySelect.value) : null,
+        amount: amount && amount.value ? parseFloat(amount.value) : 0,
+        comment: comment ? comment.value : ''
+      };
+  
+      const url = recordId ? `/api/cashflows/${recordId}/` : '/api/cashflows/';
+      const method = recordId ? 'PUT' : 'POST';
+  
+      const res = await fetch(url, {
+        method: method,
+        headers: { 
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+  
+      if (res.ok) {
+        alert('Успешно!')
+        window.location.href = "{% url 'dds:record_list' %}";
+      } else {
+        const err = await res.json();
+        console.error('Ошибка сервера:', err);
+        alert('Ошибка сохранения: ' + JSON.stringify(err));
+      }
+    } catch (error) {
+      console.error('Ошибка отправки формы:', error);
+      alert('Произошла ошибка при сохранении: ' + error.message);
+    }
+  });
+  
+  // Загружаем форму после полной загрузки DOM
+  document.addEventListener('DOMContentLoaded', function() {
+    // Небольшая задержка для гарантии полной загрузки DOM
+    setTimeout(loadForm, 100);
+    
+    // Добавляем обработчики изменений для селектов
+    const typeSelect = getElement('type-select');
+    const categorySelect = getElement('category-select');
+    
+    if (typeSelect) {
+      typeSelect.addEventListener('change', updateCategories);
+    }
+    
+    if (categorySelect) {
+      categorySelect.addEventListener('change', updateSubcategories);
+    }
+  });
+</script>
+  
+  
+  
+{% endblock %}

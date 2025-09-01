@@ -1,0 +1,115 @@
+body {
+    font-family: Arial, sans-serif;
+    background: #f9f9f9;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 20px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.page-title {
+    margin-bottom: 20px;
+}
+
+.filter-form {
+    margin-bottom: 20px;
+    padding: 10px;
+    background: #eef;
+    border: 1px solid #ccd;
+    border-radius: 6px;
+}
+
+.filter-form form label {
+    margin-right: 10px;
+}
+
+.records-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.records-table th,
+.records-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: center;
+}
+
+.records-table th {
+    background: #f0f0f0;
+}
+
+.btn {
+    padding: 6px 12px;
+    margin-left: 10px;
+    margin-top: 10px;
+    text-decoration: none;
+    background: #007bff;
+    border: none;
+    color: white;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.btn:hover {
+    background: #0056b3;
+}
+
+.btn-add {
+    background: #28a745;
+}
+
+.btn-add:hover {
+    background: #1e7e34;
+}
+
+.btn-del {
+    background: #dc3545;
+}
+
+.btn-del:hover {
+    background: #c82333;
+}
+
+.pagination {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.form-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+    background: #fafafa;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.page-title {
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.form-container form p {
+    margin-bottom: 15px;
+}
+
+.form-buttons {
+    margin-top: 20px;
+}
+
+.delete-text {
+    margin-bottom: 20px;
+    font-size: 1.1em;
+    text-align: center;
+}
